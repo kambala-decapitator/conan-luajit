@@ -1,6 +1,6 @@
 from conan import ConanFile
 from conan.tools.scm import Version
-from conan.tools.files import get, chdir, replace_in_file, copy, rmdir, export_conandata_patches, apply_conandata_patches
+from conan.tools.files import get, chdir, replace_in_file, copy, rmdir
 from conan.tools.microsoft import is_msvc, MSBuildToolchain, VCVars, unix_path
 from conan.tools.layout import basic_layout
 from conan.tools.gnu import Autotools, AutotoolsToolchain
@@ -27,9 +27,6 @@ class LuajitConan(ConanFile):
     options = {"shared": [True, False], "fPIC": [True, False]}
     default_options = {"shared": False, "fPIC": True}
 
-    def export_sources(self):
-        export_conandata_patches(self)
-
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
@@ -43,11 +40,13 @@ class LuajitConan(ConanFile):
 
     def validate(self):
         if self.settings.os == "Macos" and self.settings.arch == "armv8" and cross_building(self):
-            raise ConanInvalidConfiguration(f"{self.ref} can not be cross-built to Mac M1. Please, try any version >=2.1")
+            raise ConanInvalidConfiguration(f"{self.ref} can not be cross-built to Mac M1.")
+        if self.settings.os == "Macos" and not self._macosx_deployment_target:
+            raise ConanInvalidConfiguration("macOS build requires os.version (deployment target) to be set")
 
     def source(self):
-        filename = f"LuaJIT-{self.version}.tar.gz"
-        get(self, **self.conan_data["sources"][self.version], destination=self.source_folder, filename=filename, strip_root=True)
+        filename = f"LuaJIT-{self.version}.zip"
+        get(self, f"https://github.com/LuaJIT/LuaJIT/archive/{self.version}.zip", destination=self.source_folder, filename=filename, strip_root=True)
 
     def generate(self):
         if is_msvc(self):
@@ -103,7 +102,6 @@ class LuajitConan(ConanFile):
         return "luajit-2.1"
 
     def build(self):
-        apply_conandata_patches(self)
         self._patch_sources()
         if is_msvc(self):
             with chdir(self, os.path.join(self.source_folder, "src")):
