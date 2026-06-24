@@ -57,6 +57,7 @@ class LuajitConan(ConanFile):
     def source(self):
         filename = f"LuaJIT-{self.version}.zip"
         get(self, f"https://github.com/LuaJIT/LuaJIT/archive/{self.version}.zip", destination=self.source_folder, filename=filename, strip_root=True)
+        self._patch_sources()
 
     def generate(self):
         if is_msvc(self):
@@ -73,34 +74,20 @@ class LuajitConan(ConanFile):
             tc.generate(env)
 
     def _patch_sources(self):
-        if not is_msvc(self):
-            buildmode = 'shared' if self.options.shared else 'static'
-            makefile = os.path.join(self.source_folder, 'src', 'Makefile')
-            replace_in_file(self, makefile,
-                                  'BUILDMODE= mixed',
-                                  'BUILDMODE= %s' % buildmode)
-            replace_in_file(self, makefile,
-                                  'TARGET_DYLIBPATH= $(TARGET_LIBPATH)/$(TARGET_DYLIBNAME)',
-                                  'TARGET_DYLIBPATH= $(TARGET_DYLIBNAME)')
-            # adjust mixed mode defaults to build either .so or .a, but not both
-            if not self.options.shared:
-                replace_in_file(self, makefile,
-                                      'TARGET_T= $(LUAJIT_T) $(LUAJIT_SO)',
-                                      'TARGET_T= $(LUAJIT_T) $(LUAJIT_A)')
-                replace_in_file(self, makefile,
-                                      'TARGET_DEP= $(LIB_VMDEF) $(LUAJIT_SO)',
-                                      'TARGET_DEP= $(LIB_VMDEF) $(LUAJIT_A)')
-            else:
-                replace_in_file(self, makefile,
-                                      'TARGET_O= $(LUAJIT_A)',
-                                      'TARGET_O= $(LUAJIT_SO)')
+        makefile = os.path.join(self.source_folder, 'src', 'Makefile')
+        replace_in_file(self, makefile,
+                                'TARGET_DYLIBPATH= $(TARGET_LIBPATH)/$(TARGET_DYLIBNAME)',
+                                'TARGET_DYLIBPATH= $(TARGET_DYLIBNAME)')
 
     def _apple_deployment_target(self, default=None):
         return self.settings.get_safe("os.version", default=default)
 
     @property
     def _make_arguments(self):
-        args = [f"PREFIX={unix_path(self, self.package_folder)}"]
+        args = [
+            f"PREFIX={unix_path(self, self.package_folder)}",
+            f"BUILDMODE={'dynamic' if self.options.shared else 'static'}",
+        ]
         if "clang" in str(self.settings.compiler):
             args.append("DEFAULT_CC=clang")
 
@@ -153,7 +140,6 @@ class LuajitConan(ConanFile):
         return "luajit-2.1"
 
     def build(self):
-        self._patch_sources()
         if is_msvc(self):
             with chdir(self, os.path.join(self.source_folder, "src")):
                 variant = '' if self.options.shared else 'static'
