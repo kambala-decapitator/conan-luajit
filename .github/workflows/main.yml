@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  pull_request:
+    paths-ignore:
+      - README.md
+  push:
+    paths-ignore:
+      - README.md
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - image: ubuntu-latest
+            name: Ubuntu
+          - image: ubuntu-26.04-arm
+            name: Ubuntu ARM
+          - image: ubuntu-slim
+            name: Ubuntu Slim
+            ci_prepare: sudo apt-get update; sudo apt-get install cmake
+          - image: macos-latest
+            name: macOS
+            conan_params: -s os.version=11.0
+          - image: macos-26-intel
+            name: macOS Intel
+            conan_params: -s os.version=10.13
+          - image: windows-latest
+            name: Windows
+          - image: windows-latest
+            name: Windows x86
+            conan_params: -s arch=x86
+          - image: windows-2025-vs2026
+            name: Windows VS2026
+          - image: windows-11-vs2026-arm
+            name: Windows ARM
+        lib_shared:
+          - 'True'
+          - 'False'
+    name: ${{ matrix.runner.name }}, shared=${{ matrix.lib_shared }}
+    runs-on: ${{ matrix.runner.image }}
+    steps:
+    - uses: actions/checkout@v6
+    - name: Prepare CI
+      if: matrix.runner.ci_prepare
+      run: ${{ matrix.runner.ci_prepare }}
+    - name: Setup Conan
+      run: |
+        pipx install conan
+        conan profile detect
+    - name: Build
+      run: conan create --version=${{ env.LUAJIT_COMMIT }} -o "luajit/*:shared=${{ matrix.lib_shared }}" ${{ matrix.runner.conan_params }} -c tools.compilation:verbosity=verbose
+      env:
+        LUAJIT_COMMIT: 7ff85518540617c0f97c4720558bb21c245994a8
