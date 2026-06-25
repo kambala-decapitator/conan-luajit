@@ -4,7 +4,7 @@ from conan.tools.files import get, chdir, replace_in_file, copy, rmdir
 from conan.tools.microsoft import is_msvc, MSBuildToolchain, VCVars, unix_path
 from conan.tools.layout import basic_layout
 from conan.tools.gnu import Autotools, AutotoolsToolchain
-from conan.tools.apple import XCRun, to_apple_arch
+from conan.tools.apple import XCRun
 from conan.tools.build import cross_building
 from conan.tools.env import VirtualBuildEnv
 from conan.errors import ConanInvalidConfiguration
@@ -68,10 +68,22 @@ class LuajitConan(ConanFile):
         else:
             tc = AutotoolsToolchain(self)
             env = tc.environment()
-            if self.settings.os == "iOS" or self.settings.os == "Android":
-                env.define("CFLAGS", "")
-                env.define("LDFLAGS", "")
+            self._adjustAutotoolsToolchainEnv(env)
             tc.generate(env)
+
+    def _adjustAutotoolsToolchainEnv(self, env):
+        envVars = env.vars(self)
+        cflags = ""
+        if self.settings.os == "iOS" or self.settings.os == "Android":
+            cflags = envVars.get("CFLAGS")
+            env.unset("CFLAGS")
+
+            ldflags = envVars.get("LDFLAGS")
+            env.define("TARGET_LDFLAGS", ldflags)
+            env.define("TARGET_SHLDFLAGS", ldflags)
+            env.unset("LDFLAGS")
+        # upstream doesn't read CPPFLAGS, inject them manually
+        env.define("TARGET_CFLAGS", f"{cflags} {envVars.get(name='CPPFLAGS')}")
 
     def _patch_sources(self):
         makefile = os.path.join(self.source_folder, 'src', 'Makefile')
@@ -91,18 +103,11 @@ class LuajitConan(ConanFile):
         if "clang" in str(self.settings.compiler):
             args.append("DEFAULT_CC=clang")
 
-        # upstream doesn't read CPPFLAGS, inject them manually
-        cppflags = AutotoolsToolchain(self).environment().vars(self).get("CPPFLAGS")
-        args.append(f"TARGET_CFLAGS='{cppflags}'")
-
         if self.settings.os == "Macos" and self._apple_deployment_target():
             args.append(f"MACOSX_DEPLOYMENT_TARGET={self._apple_deployment_target()}")
         elif self.settings.os == "iOS":
-            xcrun = XCRun(self)
-            target_flag = f"{to_apple_arch(self)}-apple-ios{self._apple_deployment_target(default='')}"
             args.extend([
-                f"CROSS='{os.path.dirname(xcrun.cc)}/'",
-                f"""TARGET_FLAGS='-isysroot "{xcrun.sdk_path}" -target {target_flag}'""",
+                f"CROSS='{os.path.dirname(XCRun(self).cc)}/'",
                 "TARGET_SYS=iOS",
             ])
         elif self.settings.os == "Android":
