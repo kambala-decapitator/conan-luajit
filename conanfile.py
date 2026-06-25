@@ -147,8 +147,12 @@ class LuajitConan(ConanFile):
     def build(self):
         if is_msvc(self):
             with chdir(self, os.path.join(self.source_folder, "src")):
-                variant = '' if self.options.shared else 'static'
-                self.run(f"msvcbuild.bat {variant}", env="conanbuild")
+                build_command = ["msvcbuild.bat"]
+                if self.settings.build_type in ["Debug", "RelWithDebInfo"]:
+                    build_command.append("debug")
+                if not self.options.shared:
+                    build_command.append("static")
+                self.run(" ".join(build_command), env="conanbuild")
         else:
             with chdir(self, self.source_folder):
                 autotools = Autotools(self)
