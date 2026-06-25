@@ -135,6 +135,11 @@ class LuajitConan(ConanFile):
                     f"HOST_CFLAGS='{isysroot_flag}'",
                     f"HOST_LDFLAGS='{isysroot_flag}'",
                 ])
+
+        if self.conf.get("tools.build:verbosity", choices=("quiet", "verbose")) == "quiet":
+            args.append("E=@:")
+        if self.conf.get("tools.compilation:verbosity", choices=("quiet", "verbose")) == "verbose":
+            args.append("Q=")
         return args
 
     @property
