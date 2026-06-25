@@ -41,6 +41,9 @@ jobs:
             name: Windows VS2026
           - image: windows-11-vs2026-arm
             name: Windows ARM
+          - image: macos-latest
+            name: iOS
+            conan_params: -s os=iOS -s os.sdk=iphoneos -s os.version=15.0 -s arch=armv8
         lib_shared:
           - 'True'
           - 'False'
