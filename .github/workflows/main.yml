@@ -44,6 +44,50 @@ jobs:
           - image: macos-latest
             name: iOS
             conan_params: -s os=iOS -s os.sdk=iphoneos -s os.version=15.0 -s arch=armv8
+          - image: ubuntu-latest
+            name: Android x86_64
+            ci_prepare: |
+              echo '
+              [settings]
+              arch=x86_64
+              build_type=Release
+              compiler=clang
+              compiler.version=21
+              os=Android
+              os.api_level=21
+              [tool_requires]
+              android-ndk/r29' > android
+            conan_params: -pr android
+          - image: ubuntu-latest
+            name: Android arm64
+            ci_prepare: |
+              echo '
+              [settings]
+              arch=armv8
+              build_type=Release
+              compiler=clang
+              compiler.version=21
+              os=Android
+              os.api_level=21
+              [tool_requires]
+              android-ndk/r29' > android
+            conan_params: -pr android
+          - image: ubuntu-latest
+            name: Android armv7
+            ci_prepare: |
+              sudo apt-get update
+              sudo apt-get install libc6-dev-i386
+              echo '
+              [settings]
+              arch=armv7
+              build_type=Release
+              compiler=clang
+              compiler.version=21
+              os=Android
+              os.api_level=21
+              [tool_requires]
+              android-ndk/r29' > android
+            conan_params: -pr android
         lib_shared:
           - 'True'
           - 'False'
